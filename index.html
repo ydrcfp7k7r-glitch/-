@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>수형이 예뻐해주기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Jua&family=Gmarket+Sans:wght@500;700;900&display=swap');
+        
+        * {
+            font-family: 'Jua', 'Gmarket Sans', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background: radial-gradient(circle at center, #fffbeb 0%, #fef3c7 60%, #fde68a 100%);
+            touch-action: none;
+            overflow: hidden;
+        }
+
+        /* 메인 카드 스타일 */
+        .game-board {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+            border: 4px solid #fcd34d;
+            box-shadow: 0 20px 50px rgba(217, 119, 6, 0.25);
+        }
+
+        /* 증명사진 프레임 (축소) */
+        .id-photo-frame {
+            border: 5px solid #ffffff;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15), inset 0 0 10px rgba(0, 0, 0, 0.05);
+            background: linear-gradient(180deg, #e0f2fe 0%, #bae6fd 100%);
+        }
+
+        /* 게이지 채우기 애니메이션 */
+        .gauge-fill {
+            transition: width 0.1s linear;
+            background: linear-gradient(90deg, #38bdf8 0%, #0284c7 80%, #0369a1 100%);
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+        }
+
+        /* 물 내뿜기 애니메이션 */
+        @keyframes squirt-pop {
+            0% { transform: scale(1) rotate(0deg); }
+            20% { transform: scale(1.1, 0.9) rotate(-3deg); }
+            40% { transform: scale(0.92, 1.18) rotate(3deg); }
+            60% { transform: scale(1.05, 0.95); }
+            100% { transform: scale(1) rotate(0deg); }
+        }
+
+        .squirt-anim {
+            animation: squirt-pop 0.5s ease-in-out;
+        }
+
+        /* 하트 동동 애니메이션 */
+        @keyframes float-heart {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            50% { transform: translateY(-8px) scale(1.1); }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+
+        .heart-float {
+            display: inline-block;
+            animation: float-heart 1.8s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-2 sm:p-4">
+
+    <div class="relative w-full max-w-5xl game-board rounded-3xl p-3 sm:p-6 flex flex-col items-center justify-between min-h-[660px] shadow-2xl">
+        
+        <!-- 1. 상단 한 줄 전체 메인 제목 (하트 장식) -->
+        <div class="w-full text-center py-2 border-b-2 border-amber-200/80 mb-2">
+            <h1 class="text-3xl sm:text-5xl font-black text-amber-950 tracking-wide flex items-center justify-center gap-2 sm:gap-4 drop-shadow-sm">
+                <span class="heart-float text-pink-500">💖</span>
+                <span class="heart-float text-red-500" style="animation-delay: 0.3s">♥</span>
+                <span>수형이 예뻐해주기</span>
+                <span class="heart-float text-red-500" style="animation-delay: 0.6s">♥</span>
+                <span class="heart-float text-pink-500" style="animation-delay: 0.9s">💖</span>
+            </h1>
+        </div>
+
+        <!-- 2. 제목 바로 밑 하늘색 민감도 게이지 바 전체 폭 -->
+        <div class="w-full mb-3 px-1">
+            <div class="flex justify-between items-center mb-1.5 px-2">
+                <span class="text-amber-950 font-black text-lg sm:text-xl flex items-center gap-2">
+                    <span>민감도</span>
+                    <span id="levelBadge" class="text-xs sm:text-sm bg-sky-100 border border-sky-300 text-sky-800 px-3 py-0.5 rounded-full font-bold shadow-sm">
+                        LV 1. 깝죽깝죽
+                    </span>
+                </span>
+                <span id="gaugePercent" class="text-sky-600 font-black text-2xl sm:text-3xl drop-shadow-sm">0%</span>
+            </div>
+
+            <!-- 하늘색 게이지 바 & 물튀기는 마크 -->
+            <div class="relative w-full h-8 sm:h-9 bg-amber-100/90 rounded-full border-4 border-amber-300 overflow-hidden shadow-inner flex items-center p-0.5">
+                <div id="gaugeFillBar" class="gauge-fill h-full w-0 rounded-full"></div>
+                <div class="absolute right-3 top-1/2 -translate-y-1/2 text-2xl pointer-events-none filter drop-shadow">
+                    💦
+                </div>
+            </div>
+            
+            <!-- 안내 문구 (요청사항 반영: "수형이를 예뻐해주세요!") -->
+            <div class="w-full text-center mt-2">
+                <span id="statusBadge" class="inline-block bg-gradient-to-r from-amber-100 to-amber-200 border-2 border-amber-400 text-amber-900 text-sm sm:text-base px-5 py-1 rounded-full font-bold shadow-sm">
+                    수형이를 예뻐해주세요! 🖐️
+                </span>
+            </div>
+        </div>
+
+        <!-- 3. 좌우 비율 조정 (좌측 증명사진 작게 / 우측 개불 크게) -->
+        <div class="w-full flex-1 grid grid-cols-12 gap-3 items-center justify-center my-1">
+            
+            <!-- LEFT SIDE (약 35%): 축소된 증명사진 (민머리 수형이) -->
+            <div class="col-span-12 md:col-span-4 flex flex-col items-center justify-center p-2">
+                <div class="id-photo-frame w-36 h-48 sm:w-44 sm:h-56 rounded-2xl overflow-hidden relative flex items-center justify-center transform hover:scale-[1.02] transition-transform">
+                    <div id="suhyeongFaceContainer" class="w-full h-full">
+                        <!-- 민머리 수형이 SVG 표정이 JS로 교체됩니다 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT SIDE (약 65%): 훨씬 커진 버섯 모양 개불 -->
+            <div class="col-span-12 md:col-span-8 h-full flex flex-col items-center justify-center relative cursor-grab active:cursor-grabbing touch-none select-none" id="touchContainer">
+                <canvas id="gameCanvas" width="480" height="480" class="max-w-full h-auto filter drop-shadow-xl"></canvas>
+
+                <!-- 손가락 안내 힌트 -->
+                <div id="dragHint" class="absolute pointer-events-none flex flex-col items-center opacity-90 animate-pulse">
+                    <span class="text-5xl sm:text-6xl">👈</span>
+                    <span class="text-xs sm:text-sm bg-amber-900/80 text-amber-100 px-3.5 py-1 rounded-full mt-1 font-bold shadow-sm">개불을 쓱싹 문질러주세요</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 클라이맥스 승리 팝업 -->
+        <div id="victoryModal" class="absolute inset-0 bg-amber-950/45 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center p-6 hidden z-30 transition-all duration-300">
+            <div class="bg-white border-4 border-sky-400 p-6 sm:p-8 rounded-3xl text-center shadow-2xl max-w-md transform transition-transform scale-100">
+                <div class="text-6xl mb-3 animate-bounce">💦🌊💦</div>
+                <h2 class="text-3xl sm:text-4xl text-sky-600 font-black mb-2 tracking-tight">수형이 대만족!!</h2>
+                <p id="victoryMessage" class="text-gray-700 text-base sm:text-lg mb-6 font-bold leading-relaxed">
+                    시원하게 물을 내뿜었습니다!<br><span class="text-amber-600">수형이가 절정의 쾌감을 느꼈습니다!</span>
+                </p>
+                <button id="resetButton" class="bg-gradient-to-r from-sky-400 to-blue-600 text-white font-black text-xl px-8 py-3.5 rounded-2xl shadow-lg hover:brightness-110 active:scale-95 transition-all">
+                    다시 예뻐해 줄래? 🔄
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        /* 
+         * 이수형 증명사진 SVG 캐릭터 (민머리/머리카락 완전 삭제)
+         * - 넙대대하고 두툼한 볼살의 민머리 캐릭터
+         * Stage 0: 깝죽거리는 썩소 (기본)
+         * Stage 1: 깜짝 놀람 + 약한 홍조
+         * Stage 2: 찡그리며 흥분 + 강한 홍조 & 땀방울
+         * Stage 3: 대흥분 절정 ♥눈
+         */
+        const SUHYEONG_BALD_FACES = {
+            stage0: `
+            <svg viewBox="0 0 180 220" class="w-full h-full">
+                <rect width="180" height="220" fill="url(#bgGrad0)"/>
+                <defs>
+                    <linearGradient id="bgGrad0" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#e0f2fe"/>
+                        <stop offset="100%" stop-color="#bae6fd"/>
+                    </linearGradient>
+                </defs>
+                <!-- 옷/몸통 -->
+                <path d="M50 170 L130 170 L150 220 L30 220 Z" fill="#334155"/>
+                <rect x="74" y="148" width="32" height="28" fill="#fed7aa"/>
+                
+                <!-- 넙대대한 민머리 두상 -->
+                <ellipse cx="90" cy="98" rx="58" ry="60" fill="#fde68a" stroke="#d97706" stroke-width="3.5"/>
+                <ellipse cx="40" cy="115" rx="16" ry="17" fill="#fde68a" stroke="#d97706" stroke-width="2"/>
+                <ellipse cx="140" cy="115" rx="16" ry="17" fill="#fde68a" stroke="#d97706" stroke-width="2"/>
+
+                <!-- 민머리 하이라이트/광택 -->
+                <ellipse cx="70" cy="58" rx="22" ry="10" fill="#ffffff" opacity="0.45" transform="rotate(-15 70 58)"/>
+
+                <!-- 깝죽거리는 짝눈썹 -->
+                <path d="M52 80 Q68 70 82 82" stroke="#0f172a" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+                <path d="M98 84 Q112 68 128 78" stroke="#0f172a" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+
+                <!-- 작은 깝죽 눈 -->
+                <ellipse cx="68" cy="95" rx="5" ry="6" fill="#0f172a"/>
+                <ellipse cx="112" cy="93" rx="5" ry="6" fill="#0f172a"/>
+                <circle cx="69" cy="93" r="1.8" fill="#ffffff"/>
+                <circle cx="113" cy="91" r="1.8" fill="#ffffff"/>
+
+                <!-- 코 -->
+                <path d="M88 104 Q90 114 96 111" stroke="#b45309" stroke-width="3" fill="none"/>
+
+                <!-- 깝죽거리는 썩소 입 -->
+                <path d="M60 132 Q90 148 122 122" stroke="#0f172a" stroke-width="5" stroke-linecap="round" fill="none"/>
+                <path d="M110 122 Q118 128 124 132" stroke="#0f172a" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+            </svg>`,
+
+            stage1: `
+            <svg viewBox="0 0 180 220" class="w-full h-full">
+                <rect width="180" height="220" fill="url(#bgGrad1)"/>
+                <defs>
+                    <linearGradient id="bgGrad1" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#bae6fd"/>
+                        <stop offset="100%" stop-color="#7dd3fc"/>
+                    </linearGradient>
+                </defs>
+                <path d="M50 170 L130 170 L150 220 L30 220 Z" fill="#334155"/>
+                <rect x="74" y="148" width="32" height="28" fill="#fed7aa"/>
+                
+                <ellipse cx="90" cy="98" rx="58" ry="60" fill="#fde68a" stroke="#d97706" stroke-width="3.5"/>
+                <ellipse cx="40" cy="115" rx="16" ry="17" fill="#fde68a"/>
+                <ellipse cx="140" cy="115" rx="16" ry="17" fill="#fde68a"/>
+
+                <ellipse cx="70" cy="58" rx="22" ry="10" fill="#ffffff" opacity="0.45" transform="rotate(-15 70 58)"/>
+
+                <!-- 살짝 홍조 -->
+                <ellipse cx="62" cy="115" rx="16" ry="10" fill="#f43f5e" opacity="0.4"/>
+                <ellipse cx="118" cy="115" rx="16" ry="10" fill="#f43f5e" opacity="0.4"/>
+
+                <!-- 치켜뜬 눈썹 -->
+                <path d="M52 76 Q68 76 82 76" stroke="#0f172a" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+                <path d="M98 76 Q112 76 128 76" stroke="#0f172a" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+
+                <!-- 놀란 동그란 눈 -->
+                <ellipse cx="68" cy="95" rx="7.5" ry="8.5" fill="#0f172a"/>
+                <ellipse cx="112" cy="95" rx="7.5" ry="8.5" fill="#0f172a"/>
+                <circle cx="70" cy="93" r="3" fill="#ffffff"/>
+                <circle cx="114" cy="93" r="3" fill="#ffffff"/>
+
+                <path d="M88 104 Q90 114 96 111" stroke="#b45309" stroke-width="3" fill="none"/>
+
+                <!-- O자 입 -->
+                <ellipse cx="90" cy="132" rx="11" ry="13" fill="#991b1b" stroke="#0f172a" stroke-width="3"/>
+            </svg>`,
+
+            stage2: `
+            <svg viewBox="0 0 180 220" class="w-full h-full">
+                <rect width="180" height="220" fill="url(#bgGrad2)"/>
+                <defs>
+                    <linearGradient id="bgGrad2" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#fbcfe8"/>
+                        <stop offset="100%" stop-color="#f472b6"/>
+                    </linearGradient>
+                </defs>
+                <path d="M50 170 L130 170 L150 220 L30 220 Z" fill="#334155"/>
+                <rect x="74" y="148" width="32" height="28" fill="#fca5a5"/>
+                
+                <ellipse cx="90" cy="98" rx="58" ry="60" fill="#fca5a5" stroke="#be123c" stroke-width="3.5"/>
+                <ellipse cx="40" cy="115" rx="16" ry="17" fill="#fca5a5"/>
+                <ellipse cx="140" cy="115" rx="16" ry="17" fill="#fca5a5"/>
+
+                <ellipse cx="70" cy="58" rx="22" ry="10" fill="#ffffff" opacity="0.35" transform="rotate(-15 70 58)"/>
+
+                <!-- 강한 홍조 -->
+                <ellipse cx="62" cy="115" rx="20" ry="13" fill="#e11d48" opacity="0.65"/>
+                <ellipse cx="118" cy="115" rx="20" ry="13" fill="#e11d48" opacity="0.65"/>
+
+                <!-- 민머리 땀방울 -->
+                <path d="M136 68 C136 74, 140 78, 140 78 C140 78, 144 74, 144 68 C144 63, 140 60, 136 68 Z" fill="#38bdf8"/>
+
+                <!-- 찡그린 팔자 눈썹 -->
+                <path d="M50 78 L74 88" stroke="#0f172a" stroke-width="5" stroke-linecap="round"/>
+                <path d="M130 78 L106 88" stroke="#0f172a" stroke-width="5" stroke-linecap="round"/>
+
+                <!-- 감탄 눈 (> <) -->
+                <path d="M56 94 L68 100 L56 106" stroke="#0f172a" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+                <path d="M124 94 L112 100 L124 106" stroke="#0f172a" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+
+                <path d="M88 108 Q90 116 96 113" stroke="#991b1b" stroke-width="3" fill="none"/>
+
+                <!-- 헤벌레 벌린 입 -->
+                <path d="M64 126 Q90 158 116 126 Z" fill="#881337" stroke="#0f172a" stroke-width="3.5"/>
+                <path d="M76 142 Q90 132 104 142 Q90 152 76 142 Z" fill="#f43f5e"/>
+            </svg>`,
+
+            stage3: `
+            <svg viewBox="0 0 180 220" class="w-full h-full">
+                <rect width="180" height="220" fill="url(#bgGrad3)"/>
+                <defs>
+                    <linearGradient id="bgGrad3" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#f43f5e"/>
+                        <stop offset="100%" stop-color="#be123c"/>
+                    </linearGradient>
+                </defs>
+                <path d="M50 170 L130 170 L150 220 L30 220 Z" fill="#1e1b4b"/>
+                <rect x="74" y="148" width="32" height="28" fill="#fda4af"/>
+                
+                <ellipse cx="90" cy="98" rx="58" ry="60" fill="#fda4af" stroke="#9f1239" stroke-width="4"/>
+                <ellipse cx="40" cy="115" rx="16" ry="17" fill="#fda4af"/>
+                <ellipse cx="140" cy="115" rx="16" ry="17" fill="#fda4af"/>
+
+                <ellipse cx="70" cy="58" rx="22" ry="10" fill="#ffffff" opacity="0.4" transform="rotate(-15 70 58)"/>
+
+                <!-- 배경 주변 하트 -->
+                <text x="18" y="55" font-size="24" fill="#ffffff">💖</text>
+                <text x="138" y="55" font-size="24" fill="#ffffff">💖</text>
+
+                <ellipse cx="62" cy="115" rx="22" ry="14" fill="#e11d48" opacity="0.85"/>
+                <ellipse cx="118" cy="115" rx="22" ry="14" fill="#e11d48" opacity="0.85"/>
+
+                <!-- 하트 눈 -->
+                <text x="54" y="100" font-size="26" fill="#be123c">♥</text>
+                <text x="98" y="100" font-size="26" fill="#be123c">♥</text>
+
+                <!-- 황홀 입 -->
+                <path d="M58 122 Q90 166 122 122 Z" fill="#4c0519" stroke="#0f172a" stroke-width="4"/>
+                <ellipse cx="90" cy="144" rx="18" ry="10" fill="#fb7185"/>
+            </svg>`
+        };
+
+        const state = {
+            gauge: 0,
+            maxGauge: 100,
+            isDragging: false,
+            lastX: 0,
+            lastY: 0,
+            rubSpeed: 0,
+            particles: [],
+            waterJets: [],
+            isCompleted: false,
+            currentStage: -1,
+            wormJiggle: 0
+        };
+
+        // DOM 레퍼런스
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const faceContainer = document.getElementById('suhyeongFaceContainer');
+        const gaugeFillBar = document.getElementById('gaugeFillBar');
+        const gaugePercent = document.getElementById('gaugePercent');
+        const statusBadge = document.getElementById('statusBadge');
+        const levelBadge = document.getElementById('levelBadge');
+        const dragHint = document.getElementById('dragHint');
+        const victoryModal = document.getElementById('victoryModal');
+        const resetButton = document.getElementById('resetButton');
+        const touchContainer = document.getElementById('touchContainer');
+
+        // Web Audio API
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playRubSound() {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                
+                const baseFreq = 220 + (state.gauge * 3.5);
+                osc.frequency.setValueAtTime(baseFreq + Math.random() * 50, audioCtx.currentTime);
+                
+                gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.08);
+            } catch (e) {}
+        }
+
+        function playSquirtSound() {
+            initAudio();
+            if (!audioCtx) return;
+            try {
+                const bufferSize = audioCtx.sampleRate * 1.2;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(500, audioCtx.currentTime);
+                filter.frequency.exponentialRampToValueAtTime(1800, audioCtx.currentTime + 0.6);
+                filter.Q.value = 3;
+
+                const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.2);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                noise.start();
+                noise.stop(audioCtx.currentTime + 1.2);
+            } catch (e) {}
+        }
+
+        /* 
+         * STREAMING_CHUNK:Drawing enlarged mushroom-shaped spoon worm on canvas...
+         * 훨씬 크게 확대된 세로형 버섯 개불 렌더링
+         */
+        function drawEnlargedMushroomSpoonWorm() {
+            const w = canvas.width;
+            const h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            const cx = w / 2;
+            const cy = h / 2 + 30;
+
+            const jiggle = Math.sin(state.wormJiggle) * (state.rubSpeed * 0.9 + state.gauge * 0.08);
+
+            ctx.save();
+            ctx.translate(cx, cy);
+
+            // 게이지 상승에 따른 기둥/갓 전체 확대 비율
+            const scaleY = 1.15 + (state.gauge / 100) * 0.15;
+            const scaleX = 1.15 + (state.gauge / 100) * 0.1;
+            ctx.scale(scaleX, scaleY);
+
+            // 1. 버섯 기둥 (확대된 세로형 어두운 살색 바디)
+            ctx.beginPath();
+            ctx.moveTo(-55, 145 + jiggle);
+            ctx.bezierCurveTo(-68, 30, -52, -50, -62, -95); // 좌측 외곽선
+            ctx.bezierCurveTo(-62, -118, 62, -118, 62, -95); // 상단 갓 연결부
+            ctx.bezierCurveTo(52, -50, 68, 30, 55, 145 + jiggle); // 우측 외곽선
+            ctx.bezierCurveTo(25, 168 + jiggle, -25, 168 + jiggle, -55, 145 + jiggle); // 밑퉁
+            ctx.closePath();
+
+            // 어두운 살색 그라데이션
+            const stemGrad = ctx.createLinearGradient(-60, 0, 60, 0);
+            stemGrad.addColorStop(0, '#a75d4d');
+            stemGrad.addColorStop(0.3, '#d88c7b');
+            stemGrad.addColorStop(0.7, '#c97867');
+            stemGrad.addColorStop(1, '#8c4436');
+
+            ctx.fillStyle = stemGrad;
+            ctx.fill();
+            ctx.strokeStyle = '#5c2b21';
+            ctx.lineWidth = 7;
+            ctx.stroke();
+
+            // 2. 버섯 모자 (상단 대형 개불 헤드)
+            ctx.beginPath();
+            ctx.moveTo(-105, -90 + jiggle * 0.5);
+            ctx.bezierCurveTo(-112, -170, -50, -205, 0, -205); // 좌상단
+            ctx.bezierCurveTo(50, -205, 112, -170, 105, -90 + jiggle * 0.5); // 우상단
+            ctx.bezierCurveTo(62, -75, -62, -75, -105, -90 + jiggle * 0.5); // 갓 밑선
+            ctx.closePath();
+
+            const capGrad = ctx.createRadialGradient(0, -150, 20, 0, -130, 110);
+            if (state.gauge < 50) {
+                capGrad.addColorStop(0, '#e59b8b');
+                capGrad.addColorStop(0.5, '#b86352');
+                capGrad.addColorStop(1, '#783326');
+            } else {
+                capGrad.addColorStop(0, '#f472b6');
+                capGrad.addColorStop(0.5, '#be123c');
+                capGrad.addColorStop(1, '#5c1d28');
+            }
+
+            ctx.fillStyle = capGrad;
+            ctx.fill();
+            ctx.strokeStyle = '#5c2b21';
+            ctx.lineWidth = 7;
+            ctx.stroke();
+
+            // 버섯 모자 주름 질감
+            ctx.strokeStyle = 'rgba(92, 43, 33, 0.28)';
+            ctx.lineWidth = 4;
+            for (let ox = -75; ox <= 75; ox += 35) {
+                ctx.beginPath();
+                ctx.moveTo(ox * 0.5, -192);
+                ctx.lineTo(ox, -95);
+                ctx.stroke();
+            }
+
+            // 개불 가로 주름 선 (기둥)
+            ctx.strokeStyle = 'rgba(92, 43, 33, 0.22)';
+            ctx.lineWidth = 4.5;
+            [-40, 10, 60, 105].forEach((oy) => {
+                ctx.beginPath();
+                ctx.arc(0, oy, 40, Math.PI * 0.15, Math.PI * 0.85);
+                ctx.stroke();
+            });
+
+            // 개불 표정 (버섯 모자 중앙)
+            const faceY = -135;
+
+            // 볼홍조
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.beginPath();
+            ctx.arc(-26, faceY + 14, 12, 0, Math.PI * 2);
+            ctx.arc(26, faceY + 14, 12, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (state.gauge < 70) {
+                ctx.fillStyle = '#3b1812';
+                ctx.beginPath();
+                ctx.arc(-22, faceY, 6, 0, Math.PI * 2);
+                ctx.arc(22, faceY, 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(-20, faceY - 2, 2.5, 0, Math.PI * 2);
+                ctx.arc(20, faceY - 2, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 4.5;
+                ctx.beginPath();
+                ctx.moveTo(-30, faceY - 6); ctx.lineTo(-18, faceY); ctx.lineTo(-30, faceY + 6);
+                ctx.moveTo(30, faceY - 6); ctx.lineTo(18, faceY); ctx.lineTo(30, faceY + 6);
+                ctx.stroke();
+            }
+
+            // 입
+            ctx.strokeStyle = '#3b1812';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(0, faceY + 10, 10, 0, Math.PI);
+            ctx.stroke();
+
+            ctx.restore();
+
+            renderWaterJets();
+            renderParticles();
+        }
+
+        function addParticle(x, y) {
+            const items = ['♥', '💖', '✨', '💦', '💕'];
+            const item = items[Math.floor(Math.random() * items.length)];
+            state.particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 7,
+                vy: -Math.random() * 6 - 2,
+                item: item,
+                alpha: 1,
+                size: Math.random() * 18 + 20
+            });
+        }
+
+        function renderParticles() {
+            for (let i = state.particles.length - 1; i >= 0; i--) {
+                const p = state.particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.03;
+
+                if (p.alpha <= 0) {
+                    state.particles.splice(i, 1);
+                    continue;
+                }
+
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.font = `${p.size}px sans-serif`;
+                ctx.fillText(p.item, p.x, p.y);
+                ctx.restore();
+            }
+        }
+
+        function triggerWaterSpray() {
+            playSquirtSound();
+
+            const w = canvas.width;
+            const h = canvas.height;
+            const nozzleX = w / 2;
+            const nozzleY = h / 2 - 170; // 대형 버섯 개불 상단 분사구
+
+            for (let i = 0; i < 130; i++) {
+                const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.25;
+                const speed = Math.random() * 24 + 11;
+                state.waterJets.push({
+                    x: nozzleX,
+                    y: nozzleY,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    r: Math.random() * 10 + 4,
+                    alpha: 1
+                });
+            }
+
+            canvas.classList.add('squirt-anim');
+            setTimeout(() => canvas.classList.remove('squirt-anim'), 600);
+        }
+
+        function renderWaterJets() {
+            for (let i = state.waterJets.length - 1; i >= 0; i--) {
+                const p = state.waterJets[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.45;
+                p.alpha -= 0.015;
+
+                if (p.alpha <= 0) {
+                    state.waterJets.splice(i, 1);
+                    continue;
+                }
+
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = '#0284c7';
+                ctx.strokeStyle = '#bae6fd';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        // 게이지 업데이트
+        function addGauge(val) {
+            if (state.isCompleted) return;
+
+            state.gauge = Math.min(state.maxGauge, state.gauge + val);
+            
+            gaugeFillBar.style.width = `${state.gauge}%`;
+            gaugePercent.innerText = `${Math.floor(state.gauge)}%`;
+
+            if (state.gauge > 2 && dragHint) {
+                dragHint.style.display = 'none';
+            }
+
+            // 표정 Stage 판별 (민머리 수형이)
+            let stage = 0;
+            if (state.gauge >= 100) stage = 3;
+            else if (state.gauge >= 70) stage = 2;
+            else if (state.gauge >= 30) stage = 1;
+
+            if (stage !== state.currentStage) {
+                state.currentStage = stage;
+                
+                if (stage === 0) {
+                    faceContainer.innerHTML = SUHYEONG_BALD_FACES.stage0;
+                    levelBadge.innerText = "LV 1. 깝죽깝죽";
+                    statusBadge.innerText = "수형이를 예뻐해주세요! 🖐️";
+                } else if (stage === 1) {
+                    faceContainer.innerHTML = SUHYEONG_BALD_FACES.stage1;
+                    levelBadge.innerText = "LV 2. 어라...?";
+                    statusBadge.innerText = "어라...? 조금 기분 좋은데? 😳";
+                } else if (stage === 2) {
+                    faceContainer.innerHTML = SUHYEONG_BALD_FACES.stage2;
+                    levelBadge.innerText = "LV 3. 극도 흥분";
+                    statusBadge.innerText = "아앗!! 너무 기분 좋아! 폭발 직전! 🔥";
+                } else if (stage === 3) {
+                    faceContainer.innerHTML = SUHYEONG_BALD_FACES.stage3;
+                    levelBadge.innerText = "LV MAX. 대성공!";
+                    statusBadge.innerText = "💦 시원하게 내뿜었습니다!! 💦";
+                }
+            }
+
+            // 100% 클라이맥스
+            if (state.gauge >= 100 && !state.isCompleted) {
+                state.isCompleted = true;
+                triggerWaterSpray();
+
+                setTimeout(() => {
+                    victoryModal.classList.remove('hidden');
+                }, 1000);
+            }
+        }
+
+        function processPointerMove(clientX, clientY) {
+            if (!state.isDragging || state.isCompleted) return;
+
+            initAudio();
+
+            const rect = canvas.getBoundingClientRect();
+            const canvasX = (clientX - rect.left) * (canvas.width / rect.width);
+            const canvasY = (clientY - rect.top) * (canvas.height / rect.height);
+
+            const dx = clientX - state.lastX;
+            const dy = clientY - state.lastY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist > 3) {
+                state.rubSpeed = Math.min(20, dist);
+                addGauge(dist * 0.1);
+
+                if (Math.random() < 0.35) {
+                    addParticle(canvasX, canvasY);
+                    playRubSound();
+                }
+            }
+
+            state.lastX = clientX;
+            state.lastY = clientY;
+        }
+
+        // 마우스 이벤트
+        touchContainer.addEventListener('mousedown', (e) => {
+            state.isDragging = true;
+            state.lastX = e.clientX;
+            state.lastY = e.clientY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            processPointerMove(e.clientX, e.clientY);
+        });
+
+        window.addEventListener('mouseup', () => {
+            state.isDragging = false;
+            state.rubSpeed = 0;
+        });
+
+        // 터치 이벤트
+        touchContainer.addEventListener('touchstart', (e) => {
+            state.isDragging = true;
+            const touch = e.touches[0];
+            state.lastX = touch.clientX;
+            state.lastY = touch.clientY;
+        }, { passive: true });
+
+        window.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 0) {
+                const touch = e.touches[0];
+                processPointerMove(touch.clientX, touch.clientY);
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchend', () => {
+            state.isDragging = false;
+            state.rubSpeed = 0;
+        });
+
+        // 리셋 버튼
+        resetButton.addEventListener('click', () => {
+            state.gauge = 0;
+            state.isCompleted = false;
+            state.currentStage = -1;
+            state.particles = [];
+            state.waterJets = [];
+            gaugeFillBar.style.width = '0%';
+            gaugePercent.innerText = '0%';
+            victoryModal.classList.add('hidden');
+            addGauge(0);
+        });
+
+        // 애니메이션 메인 루프
+        function gameLoop() {
+            state.wormJiggle += 0.08;
+            drawEnlargedMushroomSpoonWorm();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = () => {
+            addGauge(0);
+            gameLoop();
+        };
+    </script>
+</body>
+</html>
